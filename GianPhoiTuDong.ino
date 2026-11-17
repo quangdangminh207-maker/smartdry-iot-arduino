@@ -1,3 +1,11 @@
+/*
+ * =========================================================================
+ * Dự án: HỆ THỐNG GIÀN PHƠI QUẦN ÁO THÔNG MINH (SmartDry IoT)
+ * Tác giả: ĐẶNG MINH QUANG
+ * GitHub: https://github.com/quangdangminh207-maker/smartdry-iot-arduino
+ * =========================================================================
+ */
+
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <Servo.h>

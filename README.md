@@ -72,5 +72,6 @@ gian-phoi-iot/
 ---
 
 ## 👤 Tác Giả & Bản Quyền
-* Tác giả: **Quang Nguyễn**
-* Dự án mã nguồn mở phục vụ mục đích học tập và nghiên cứu công nghệ IoT / Nhúng.
+* Tác giả: **Đặng Minh Quang**
+* GitHub: [@quangdangminh207-maker](https://github.com/quangdangminh207-maker)
+* Dự án mã nguồn mở phục vụ mục đích học tập và nghiên cứu công nghệ IoT / Hệ thống nhúng.
