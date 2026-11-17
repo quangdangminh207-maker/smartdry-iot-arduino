@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "author": "SmartDry IoT",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-arduino-uno", "id": "uno", "top": 120, "left": 100, "attrs": {} },
+    { "type": "wokwi-lcd1602", "id": "lcd", "top": -80, "left": 100, "attrs": { "pins": "i2c" } },
+    { "type": "wokwi-servo", "id": "servo", "top": 100, "left": 450, "attrs": {} },
+    { "type": "wokwi-potentiometer", "id": "rain_pot", "top": 280, "left": -80, "attrs": { "value": "800" } },
+    { "type": "wokwi-photoresistor-sensor", "id": "ldr", "top": 350, "left": 250, "attrs": {} }
+  ],
+  "connections": [
+    [ "uno:5V", "lcd:VCC", "red", [ "v0" ] ],
+    [ "uno:GND.1", "lcd:GND", "black", [ "v0" ] ],
+    [ "uno:A4", "lcd:SDA", "green", [ "v0" ] ],
+    [ "uno:A5", "lcd:SCL", "blue", [ "v0" ] ],
+    [ "uno:3", "servo:PWM", "orange", [ "v0" ] ],
+    [ "uno:5V", "servo:V+", "red", [ "v0" ] ],
+    [ "uno:GND.2", "servo:GND", "black", [ "v0" ] ],
+    [ "rain_pot:SIG", "uno:A1", "cyan", [ "v0" ] ],
+    [ "rain_pot:VCC", "uno:5V", "red", [ "v0" ] ],
+    [ "rain_pot:GND", "uno:GND.1", "black", [ "v0" ] ],
+    [ "ldr:DO", "uno:2", "yellow", [ "v0" ] ],
+    [ "ldr:VCC", "uno:5V", "red", [ "v0" ] ],
+    [ "ldr:GND", "uno:GND.2", "black", [ "v0" ] ]
+  ],
+  "dependencies": {}
+}

@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartDry IoT - Giàn Phơi Quần Áo Thông Minh</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @keyframes sway {
+      0%, 100% { transform: rotate(-2deg); }
+      50% { transform: rotate(2deg); }
+    }
+    .animate-sway {
+      animation: sway 3s ease-in-out infinite;
+      transform-origin: top center;
+    }
+  </style>
+</head>
+<body class="bg-[#0f172a] text-slate-100 min-h-screen font-sans antialiased p-4 sm:p-6 lg:p-8 flex flex-col justify-between">
+
+  <div class="max-w-7xl mx-auto w-full space-y-5">
+    <!-- TOP NAVIGATION HEADER VỚI ĐĂNG NHẬP USERNAME / PASSWORD -->
+    <header class="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md shadow-xl">
+      <!-- Logo & Branding -->
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-xl shadow-lg shadow-sky-500/20">
+          🧺
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight bg-gradient-to-r from-sky-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">
+              SmartDry IoT Dashboard
+            </h1>
+            <span class="px-2 py-0.5 text-[10px] font-mono rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">Auth v2.5</span>
+          </div>
+          <p class="text-xs text-slate-400">Hệ thống điều khiển & giám sát giàn phơi thông minh</p>
+        </div>
+      </div>
+
+      <!-- Center: Hardware Connection (Web Serial API) -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/60 border border-slate-700/80 text-xs">
+          <span id="serial-dot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+          <span id="serial-status-text" class="text-slate-400 font-mono">Chưa cắm USB</span>
+        </div>
+        <button id="btn-connect-serial" class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition active:scale-95">
+          <span>🔌</span>
+          <span id="btn-serial-text">Kết nối Arduino</span>
+        </button>
+      </div>
+
+      <!-- Right: Username & Password Auth Area -->
+      <div class="flex items-center gap-2.5">
+        <!-- Khi CHƯA đăng nhập -->
+        <div id="auth-logged-out" class="flex items-center gap-2">
+          <span class="text-xs text-slate-400 hidden sm:inline">Khách (Chưa đăng nhập)</span>
+          <button id="btn-open-login" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-md shadow-orange-500/20 hover:brightness-110 transition active:scale-95 cursor-pointer">
+            <span>🔑</span>
+            <span>Đăng nhập</span>
+          </button>
+        </div>
+
+        <!-- Khi ĐÃ đăng nhập -->
+        <div id="auth-logged-in" class="hidden flex items-center gap-3">
+          <div class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-700">
+            <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-600 flex items-center justify-center text-white font-bold text-xs shadow-inner">
+              A
+            </div>
+            <div class="text-left leading-tight">
+              <span id="user-display-name" class="font-semibold text-xs block text-slate-100">admin</span>
+              <span class="text-[10px] text-emerald-400 font-mono">Đã xác thực • Quyền Admin</span>
+            </div>
+          </div>
+          <button id="btn-logout" class="text-xs text-slate-400 hover:text-rose-400 transition cursor-pointer">Thoát</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- BANNER SECURITY WARNING (HIỆN KHI CHƯA ĐĂNG NHẬP) -->
+    <div id="banner-auth-warning" class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between shadow-sm">
+      <div class="flex items-center gap-2.5">
+        <span class="text-base">🔒</span>
+        <span><strong>Bảo mật Quản trị:</strong> Vui lòng đăng nhập với tên đăng nhập và mật khẩu để mở khóa quyền điều khiển giàn phơi. (Tài khoản mặc định: <code class="bg-amber-500/20 px-1 py-0.5 rounded font-mono font-bold text-white">admin</code> / Mật khẩu: <code class="bg-amber-500/20 px-1 py-0.5 rounded font-mono font-bold text-white">123</code>)</span>
+      </div>
+      <button id="btn-banner-login" class="text-[11px] font-bold px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 transition">
+        Đăng nhập ngay
+      </button>
+    </div>
+
+    <!-- MAIN DASHBOARD BENTO GRID -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      
+      <!-- CỘT TRÁI (5 CỘT): TRUNG TÂM ĐIỀU KHIỂN (CÓ KHÓA BẢO VỆ) -->
+      <div class="lg:col-span-5 space-y-5">
+        <div class="p-5 rounded-2xl bg-slate-800/50 border border-slate-700/60 backdrop-blur-md space-y-5 relative overflow-hidden">
+          
+          <!-- Lock Overlay if not logged in -->
+          <div id="control-lock-overlay" class="absolute inset-0 bg-slate-900/85 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center p-6 text-center space-y-3 transition-opacity">
+            <div class="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-2xl text-amber-400 shadow-lg">
+              🔐
+            </div>
+            <div>
+              <h3 class="font-bold text-sm text-slate-200">Bảng điều khiển đang khóa</h3>
+              <p class="text-xs text-slate-400 max-w-xs mt-1">Đăng nhập tài khoản quản trị để kích hoạt quyền điều khiển giàn phơi.</p>
+            </div>
+            <button id="btn-overlay-login" class="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md transition active:scale-95">
+              Đăng nhập tài khoản
+            </button>
+          </div>
+
+          <!-- Title & Mode Status -->
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">🎛️</span>
+              <h2 class="font-bold text-sm uppercase tracking-wider text-slate-200">Chế độ vận hành</h2>
+            </div>
+            <span id="mode-badge" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+              TỰ ĐỘNG (AUTO)
+            </span>
+          </div>
+
+          <!-- Mode Toggle Buttons -->
+          <div class="grid grid-cols-2 gap-3">
+            <button id="btn-mode-auto" class="py-2.5 px-3 rounded-xl font-semibold text-xs border border-emerald-500/60 bg-emerald-500/20 text-emerald-300 transition shadow-md flex items-center justify-center gap-2">
+              <span>🔄</span> Tự Động (Auto)
+            </button>
+            <button id="btn-mode-manual" class="py-2.5 px-3 rounded-xl font-semibold text-xs border border-slate-700 bg-slate-800 text-slate-400 hover:text-slate-200 transition flex items-center justify-center gap-2">
+              <span>🖐️</span> Thủ Công (Manual)
+            </button>
+          </div>
+
+          <!-- Big Action Buttons -->
+          <div class="space-y-2 pt-2 border-t border-slate-700/60">
+            <div class="flex justify-between items-center text-xs text-slate-400">
+              <span>Lệnh chấp hành:</span>
+              <span class="text-[11px] text-sky-400 font-mono">Serial: 9600 bps</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <button id="btn-cmd-open" class="group relative py-3.5 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-lg shadow-orange-500/20 hover:brightness-110 active:scale-95 transition flex flex-col items-center justify-center gap-1 cursor-pointer">
+                <span class="text-base">☀️ PHƠI ĐỒ RA</span>
+                <span class="text-[10px] font-mono opacity-80 font-normal">Góc quay: 0°</span>
+              </button>
+              <button id="btn-cmd-close" class="group relative py-3.5 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-indigo-500 to-sky-600 text-white shadow-lg shadow-indigo-500/20 hover:brightness-110 active:scale-95 transition flex flex-col items-center justify-center gap-1 cursor-pointer">
+                <span class="text-base">🏠 THU ĐỒ VÀO</span>
+                <span class="text-[10px] font-mono opacity-80 font-normal">Góc quay: 90°</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Fine Angle Slider Control -->
+          <div class="space-y-2 pt-2 border-t border-slate-700/60">
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-slate-300 font-medium">Góc mở Servo SG90 (0° - 90°):</span>
+              <span id="slider-angle-readout" class="font-mono text-xs font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">0°</span>
+            </div>
+            <input id="servo-slider" type="range" min="0" max="90" value="0" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500">
+            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>0° (Phơi rộng)</span>
+              <span>45° (Nửa vời)</span>
+              <span>90° (Thu gọn)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SIMULATED ENVIRONMENT CONTROLS (FOR QUICK DEMO) -->
+        <div class="p-4 rounded-2xl bg-slate-800/40 border border-slate-700/60 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase text-slate-400 flex items-center gap-1.5">
+              <span>🎚️</span> Bảng giả lập cảm biến (Demo/Test)
+            </span>
+            <span class="text-[10px] font-mono text-slate-500">Mô phỏng tức thì</span>
+          </div>
+
+          <!-- Rain Simulation Slider -->
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-300">Cảm biến mưa (A1):</span>
+              <span id="demo-rain-label" class="font-mono text-emerald-400 font-bold">850 (Tạnh)</span>
+            </div>
+            <input id="demo-rain-slider" type="range" min="0" max="1023" value="850" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+          </div>
+
+          <!-- Light Simulation Toggle -->
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-xs text-slate-300">Cảm biến ánh sáng (D2):</span>
+            <button id="demo-btn-toggle-light" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30 transition hover:bg-amber-500/20">
+              ☀️ Đang Sáng (LOW)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CỘT PHẢI (7 CỘT): GIÁM SÁT TRỰC QUAN & BIỂU ĐỒ THỜI GIAN THỰC -->
+      <div class="lg:col-span-7 space-y-5">
+        
+        <!-- ROW: 3 SENSOR TELEMETRY CARDS -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <!-- Card Mưa -->
+          <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60 backdrop-blur-md space-y-2">
+            <div class="flex items-center justify-between text-slate-400 text-xs">
+              <span>Cảm biến Mưa</span>
+              <span id="rain-status-icon" class="text-base">☀️</span>
+            </div>
+            <div id="tele-rain-state" class="text-lg font-bold text-emerald-400">TẠNH MƯA</div>
+            <div class="flex items-center justify-between text-xs text-slate-400 font-mono">
+              <span>Giá trị ADC:</span>
+              <span id="tele-rain-adc" class="font-bold text-slate-200">850</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+              <div id="tele-rain-bar" class="h-full bg-emerald-500 transition-all duration-300" style="width: 15%;"></div>
+            </div>
+          </div>
+
+          <!-- Card Ánh Sáng -->
+          <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60 backdrop-blur-md space-y-2">
+            <div class="flex items-center justify-between text-slate-400 text-xs">
+              <span>Cảm biến Ánh sáng</span>
+              <span id="light-status-icon" class="text-base">💡</span>
+            </div>
+            <div id="tele-light-state" class="text-lg font-bold text-amber-400">TRỜI SÁNG</div>
+            <div class="flex items-center justify-between text-xs text-slate-400 font-mono">
+              <span>Chân D2:</span>
+              <span id="tele-light-pin" class="font-bold text-slate-200">0 (LOW)</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+              <div id="tele-light-bar" class="h-full bg-amber-400 transition-all duration-300" style="width: 85%;"></div>
+            </div>
+          </div>
+
+          <!-- Card Cơ Cấu Giàn Phơi -->
+          <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60 backdrop-blur-md space-y-2">
+            <div class="flex items-center justify-between text-slate-400 text-xs">
+              <span>Trạng thái Giàn phơi</span>
+              <span class="text-base">🧺</span>
+            </div>
+            <div id="tele-rack-state" class="text-lg font-bold text-sky-400">ĐANG PHƠI</div>
+            <div class="flex items-center justify-between text-xs text-slate-400 font-mono">
+              <span>Góc Servo:</span>
+              <span id="tele-rack-angle" class="font-bold text-slate-200">0°</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+              <div id="tele-rack-bar" class="h-full bg-sky-500 transition-all duration-300" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VISUAL GRAPHIC: ANIMATED DRYING RACK SVG -->
+        <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="space-y-1">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Mô hình động học giàn phơi</span>
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <p id="rack-desc-text" class="text-sm font-medium text-slate-200">Giàn phơi đang vươn ra đón ánh nắng ban mai</p>
+            </div>
+            <p class="text-[11px] text-slate-500">Mô phỏng cơ cấu đòn bẩy điều khiển bởi Servo SG90 góc 0° - 90°.</p>
+          </div>
+
+          <div class="w-48 h-32 relative bg-slate-900/60 rounded-xl border border-slate-700/50 flex items-center justify-center overflow-hidden p-2">
+            <svg viewBox="0 0 160 100" class="w-full h-full">
+              <rect x="0" y="0" width="30" height="100" fill="#334155" opacity="0.6"/>
+              <polygon points="0,0 45,0 30,30 0,30" fill="#475569"/>
+              <text x="4" y="55" font-size="7" fill="#94a3b8">MÁI NHÀ</text>
+
+              <g id="svg-mechanical-arm" transform="rotate(0, 30, 45)" class="transition-transform duration-500 ease-out">
+                <line x1="30" y1="45" x2="135" y2="45" stroke="#38bdf8" stroke-width="4" stroke-linecap="round"/>
+                <circle cx="30" cy="45" r="5" fill="#f59e0b"/>
+                <line x1="60" y1="45" x2="60" y2="58" stroke="#94a3b8" stroke-width="1.5"/>
+                <line x1="95" y1="45" x2="95" y2="58" stroke="#94a3b8" stroke-width="1.5"/>
+                <line x1="125" y1="45" x2="125" y2="58" stroke="#94a3b8" stroke-width="1.5"/>
+
+                <g class="animate-sway" style="transform-origin: 60px 58px;">
+                  <polygon points="52,62 68,62 65,80 55,80" fill="#ec4899"/>
+                </g>
+                <g class="animate-sway" style="transform-origin: 95px 58px; animation-delay: -1s;">
+                  <polygon points="87,62 103,62 100,82 90,82" fill="#3b82f6"/>
+                </g>
+                <g class="animate-sway" style="transform-origin: 125px 58px; animation-delay: -2s;">
+                  <polygon points="118,62 132,62 130,78 120,78" fill="#10b981"/>
+                </g>
+              </g>
+            </svg>
+          </div>
+        </div>
+
+        <!-- REAL-TIME CANVAS CHART (RAIN & LIGHT TELEMETRY) -->
+        <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60 backdrop-blur-md space-y-2">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-semibold text-slate-300 flex items-center gap-1.5">
+              <span>📈</span> Biểu đồ xu hướng môi trường theo thời gian
+            </span>
+            <div class="flex items-center gap-3 text-[10px] font-mono">
+              <span class="flex items-center gap-1"><span class="w-2.5 h-1 bg-sky-400 rounded"></span> Độ ẩm mưa</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-1 bg-amber-400 rounded"></span> Ánh sáng</span>
+            </div>
+          </div>
+          <canvas id="live-chart" width="550" height="110" class="w-full h-28 bg-slate-900/60 rounded-xl border border-slate-700/50"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM ROW: SYSTEM LOGS & AUDIT TRAIL -->
+    <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60 backdrop-blur-md space-y-2">
+      <div class="flex items-center justify-between text-xs">
+        <div class="flex items-center gap-2">
+          <span class="text-slate-400 font-mono font-medium">📜 Nhật ký truyền thông & Cảnh báo hệ thống</span>
+        </div>
+        <button id="btn-clear-logs" class="text-xs text-slate-400 hover:text-slate-200 transition">Xóa nhật ký</button>
+      </div>
+      <div id="log-container" class="h-24 overflow-y-auto font-mono text-xs p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1 text-slate-300">
+        <div><span class="text-slate-500">[HỆ THỐNG]</span> Khởi động SmartDry IoT. Yêu cầu đăng nhập tài khoản quản trị để điều khiển.</div>
+        <div><span class="text-sky-400">[KẾT NỐI]</span> Sẵn sàng lắng nghe cổng Serial qua Web Serial API.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ĐĂNG NHẬP USERNAME / PASSWORD -->
+  <div id="login-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 relative animate-in fade-in zoom-in-95 duration-200">
+      
+      <button id="btn-close-modal" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">✕</button>
+
+      <div class="text-center space-y-1">
+        <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-2xl flex items-center justify-center mx-auto shadow-inner">
+          🔑
+        </div>
+        <h3 class="text-base font-bold text-white">Đăng Nhập Quản Trị</h3>
+        <p class="text-xs text-slate-400">Nhập tên đăng nhập và mật khẩu để điều khiển giàn phơi</p>
+      </div>
+
+      <form id="login-form" class="space-y-3.5">
+        <div>
+          <label class="block text-xs text-slate-300 font-medium mb-1">Tên đăng nhập:</label>
+          <div class="relative">
+            <span class="absolute left-3 top-2.5 text-slate-400 text-xs">👤</span>
+            <input id="input-username" type="text" value="admin" required placeholder="Nhập tên đăng nhập..." class="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-300 font-medium mb-1">Mật khẩu:</label>
+          <div class="relative">
+            <span class="absolute left-3 top-2.5 text-slate-400 text-xs">🔒</span>
+            <input id="input-password" type="password" value="123" required placeholder="Nhập mật khẩu..." class="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500">
+          </div>
+        </div>
+
+        <div id="login-error" class="hidden text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 p-2 rounded-lg text-center">
+          Tên đăng nhập hoặc mật khẩu không chính xác!
+        </div>
+
+        <div class="p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60 text-[11px] text-slate-400 text-center">
+          💡 <span class="text-slate-300">Tài khoản mặc định:</span> <strong>admin</strong> | <span class="text-slate-300">Mật khẩu:</span> <strong>123</strong>
+        </div>
+
+        <button type="submit" class="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 hover:brightness-110 shadow-lg shadow-orange-500/20 transition active:scale-95 cursor-pointer">
+          Xác Nhận Đăng Nhập
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <footer class="text-center text-xs text-slate-500 py-3 mt-4 border-t border-slate-800">
+    SmartDry IoT • Hệ thống Giàn Phơi Tự Động Arduino Uno • Bảo mật Quản trị
+  </footer>
+
+  <!-- JAVASCRIPT LOGIC VỚI TÊN ĐĂNG NHẬP & MẬT KHẨU -->
+  <script>
+    let isAuthed = false;
+    let isAutoMode = true;
+    let isRaining = false;
+    let isDark = false;
+    let currentRainVal = 850;
+    let currentServoAngle = 0;
+    let serialPort = null;
+    let serialWriter = null;
+    let serialReader = null;
+
+    const VALID_ACCOUNTS = {
+      "admin": "123",
+      "quang": "123456"
+    };
+
+    const maxPoints = 40;
+    const rainHistory = new Array(maxPoints).fill(15);
+    const lightHistory = new Array(maxPoints).fill(85);
+
+    const btnOpenLogin = document.getElementById('btn-open-login');
+    const btnBannerLogin = document.getElementById('btn-banner-login');
+    const btnOverlayLogin = document.getElementById('btn-overlay-login');
+    const btnCloseModal = document.getElementById('btn-close-modal');
+    const loginModal = document.getElementById('login-modal');
+    const loginForm = document.getElementById('login-form');
+    const inputUsername = document.getElementById('input-username');
+    const inputPassword = document.getElementById('input-password');
+    const loginError = document.getElementById('login-error');
+    const authLoggedOut = document.getElementById('auth-logged-out');
+    const authLoggedIn = document.getElementById('auth-logged-in');
+    const userDisplayName = document.getElementById('user-display-name');
+    const btnLogout = document.getElementById('btn-logout');
+    const bannerAuthWarning = document.getElementById('banner-auth-warning');
+    const controlLockOverlay = document.getElementById('control-lock-overlay');
+
+    const modeBadge = document.getElementById('mode-badge');
+    const btnModeAuto = document.getElementById('btn-mode-auto');
+    const btnModeManual = document.getElementById('btn-mode-manual');
+    const btnCmdOpen = document.getElementById('btn-cmd-open');
+    const btnCmdClose = document.getElementById('btn-cmd-close');
+    const servoSlider = document.getElementById('servo-slider');
+    const sliderAngleReadout = document.getElementById('slider-angle-readout');
+
+    const btnConnectSerial = document.getElementById('btn-connect-serial');
+    const btnSerialText = document.getElementById('btn-serial-text');
+    const serialDot = document.getElementById('serial-dot');
+    const serialStatusText = document.getElementById('serial-status-text');
+
+    const demoRainSlider = document.getElementById('demo-rain-slider');
+    const demoRainLabel = document.getElementById('demo-rain-label');
+    const demoBtnToggleLight = document.getElementById('demo-btn-toggle-light');
+
+    const teleRainState = document.getElementById('tele-rain-state');
+    const teleRainAdc = document.getElementById('tele-rain-adc');
+    const teleRainBar = document.getElementById('tele-rain-bar');
+    const rainStatusIcon = document.getElementById('rain-status-icon');
+
+    const teleLightState = document.getElementById('tele-light-state');
+    const teleLightPin = document.getElementById('tele-light-pin');
+    const teleLightBar = document.getElementById('tele-light-bar');
+    const lightStatusIcon = document.getElementById('light-status-icon');
+
+    const teleRackState = document.getElementById('tele-rack-state');
+    const teleRackAngle = document.getElementById('tele-rack-angle');
+    const teleRackBar = document.getElementById('tele-rack-bar');
+    const rackDescText = document.getElementById('rack-desc-text');
+    const svgMechanicalArm = document.getElementById('svg-mechanical-arm');
+
+    const logContainer = document.getElementById('log-container');
+    const btnClearLogs = document.getElementById('btn-clear-logs');
+    const canvas = document.getElementById('live-chart');
+    const ctx = canvas.getContext('2d');
+
+    function appendLog(category, msg, color = 'text-sky-400') {
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0];
+      const row = document.createElement('div');
+      row.innerHTML = `<span class="text-slate-500">[${timeStr}]</span> <span class="${color}">[${category}]</span> ${msg}`;
+      logContainer.appendChild(row);
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    btnClearLogs.addEventListener('click', () => {
+      logContainer.innerHTML = '';
+    });
+
+    function openLoginModal() {
+      loginError.classList.add('hidden');
+      loginModal.classList.remove('hidden');
+      inputUsername.focus();
+    }
+
+    function closeLoginModal() {
+      loginModal.classList.add('hidden');
+    }
+
+    btnOpenLogin.addEventListener('click', openLoginModal);
+    btnBannerLogin.addEventListener('click', openLoginModal);
+    btnOverlayLogin.addEventListener('click', openLoginModal);
+    btnCloseModal.addEventListener('click', closeLoginModal);
+
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const u = inputUsername.value.trim().toLowerCase();
+      const p = inputPassword.value.trim();
+
+      if (VALID_ACCOUNTS[u] && VALID_ACCOUNTS[u] === p) {
+        isAuthed = true;
+        closeLoginModal();
+
+        authLoggedOut.classList.add('hidden');
+        authLoggedIn.classList.remove('hidden');
+        bannerAuthWarning.classList.add('hidden');
+        controlLockOverlay.classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => controlLockOverlay.classList.add('hidden'), 200);
+
+        userDisplayName.textContent = u;
+        appendLog("XÁC THỰC", `Người dùng <strong>${u}</strong> đã đăng nhập thành công. Đã mở khóa quyền điều khiển!`, "text-emerald-400");
+      } else {
+        loginError.classList.remove('hidden');
+        appendLog("BẢO MẬT", `Cảnh báo: Đăng nhập thất bại với tài khoản "${u}".`, "text-rose-400");
+      }
+    });
+
+    btnLogout.addEventListener('click', () => {
+      isAuthed = false;
+      authLoggedOut.classList.remove('hidden');
+      authLoggedIn.classList.add('hidden');
+      bannerAuthWarning.classList.remove('hidden');
+      controlLockOverlay.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+
+      appendLog("XÁC THỰC", "Người dùng đã đăng xuất. Bảng điều khiển đã được khóa lại.", "text-amber-400");
+    });
+
+    btnConnectSerial.addEventListener('click', async () => {
+      if (!("serial" in navigator)) {
+        appendLog("SERIAL", "Trình duyệt không hỗ trợ Web Serial API. Bạn có thể dùng bảng giả lập bên dưới!", "text-amber-400");
+        alert("Web Serial API yêu cầu Google Chrome hoặc Microsoft Edge trên máy tính để đọc cổng COM trực tiếp.");
+        return;
+      }
+
+      if (serialPort) {
+        try {
+          if (serialReader) await serialReader.cancel();
+          if (serialWriter) await serialWriter.close();
+          await serialPort.close();
+          serialPort = null;
+          serialDot.className = "w-2.5 h-2.5 rounded-full bg-slate-500";
+          serialStatusText.textContent = "Chưa cắm USB";
+          btnSerialText.textContent = "Kết nối Arduino";
+          appendLog("SERIAL", "Đã ngắt kết nối cổng COM.", "text-slate-400");
+        } catch (e) {
+          console.error(e);
+        }
+        return;
+      }
+
+      try {
+        serialPort = await navigator.serial.requestPort();
+        await serialPort.open({ baudRate: 9600 });
+        serialDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
+        serialStatusText.textContent = "Đã kết nối COM";
+        btnSerialText.textContent = "Ngắt kết nối";
+        appendLog("SERIAL", "Đã kết nối trực tiếp Arduino Uno qua cổng USB (9600 baud)!", "text-emerald-400");
+        readSerialLoop();
+      } catch (err) {
+        appendLog("SERIAL", `Lỗi kết nối cổng COM: ${err.message}`, "text-rose-400");
+      }
+    });
+
+    async function sendSerialCommand(charCmd) {
+      if (serialPort && serialPort.writable) {
+        const textEncoder = new TextEncoderStream();
+        const writableStreamClosed = textEncoder.readable.pipeTo(serialPort.writable);
+        const writer = textEncoder.writable.getWriter();
+        await writer.write(charCmd);
+        writer.releaseLock();
+      }
+    }
+
+    async function readSerialLoop() {
+      const textDecoder = new TextDecoderStream();
+      const readableStreamClosed = serialPort.readable.pipeTo(textDecoder.writable);
+      serialReader = textDecoder.readable.getReader();
+      let buffer = "";
+
+      try {
+        while (true) {
+          const { value, done } = await serialReader.read();
+          if (done) break;
+          buffer += value;
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+          for (const line of lines) {
+            handleSerialLine(line.trim());
+          }
+        }
+      } catch (error) {
+        console.error("Lỗi đọc Serial:", error);
+      }
+    }
+
+    function handleSerialLine(line) {
+      if (!line) return;
+      appendLog("ARDUINO", line, "text-sky-300");
+      if (line.includes("Mua:") && line.includes("Goc:")) {
+        const parts = line.split('|');
+        parts.forEach(p => {
+          const [k, v] = p.split(':');
+          if (k === 'Mua') {
+            currentRainVal = parseInt(v);
+            demoRainSlider.value = currentRainVal;
+          } else if (k === 'AS') {
+            isDark = (v.trim() === '1');
+          } else if (k === 'Goc') {
+            currentServoAngle = parseInt(v);
+          }
+        });
+        updateDashboardView();
+      }
+    }
+
+    function setMode(auto) {
+      if (!isAuthed) {
+        openLoginModal();
+        return;
+      }
+      isAutoMode = auto;
+      if (isAutoMode) {
+        modeBadge.textContent = "TỰ ĐỘNG (AUTO)";
+        modeBadge.className = "px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+        btnModeAuto.className = "py-2.5 px-3 rounded-xl font-semibold text-xs border border-emerald-500/60 bg-emerald-500/20 text-emerald-300 transition shadow-md flex items-center justify-center gap-2";
+        btnModeManual.className = "py-2.5 px-3 rounded-xl font-semibold text-xs border border-slate-700 bg-slate-800 text-slate-400 hover:text-slate-200 transition flex items-center justify-center gap-2";
+        appendLog("ĐIỀU KHIỂN", "Chuyển sang chế độ <strong>TỰ ĐỘNG</strong> (Gửi mã 'A').", "text-emerald-400");
+        sendSerialCommand('A');
+      } else {
+        modeBadge.textContent = "THỦ CÔNG (MANUAL)";
+        modeBadge.className = "px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30";
+        btnModeManual.className = "py-2.5 px-3 rounded-xl font-semibold text-xs border border-amber-500/60 bg-amber-500/20 text-amber-300 transition shadow-md flex items-center justify-center gap-2";
+        btnModeAuto.className = "py-2.5 px-3 rounded-xl font-semibold text-xs border border-slate-700 bg-slate-800 text-slate-400 hover:text-slate-200 transition flex items-center justify-center gap-2";
+        appendLog("ĐIỀU KHIỂN", "Chuyển sang chế độ <strong>THỦ CÔNG</strong> (Gửi mã 'M').", "text-amber-400");
+        sendSerialCommand('M');
+      }
+    }
+
+    btnModeAuto.addEventListener('click', () => setMode(true));
+    btnModeManual.addEventListener('click', () => setMode(false));
+
+    btnCmdOpen.addEventListener('click', () => {
+      if (!isAuthed) { openLoginModal(); return; }
+      setMode(false);
+      currentServoAngle = 0;
+      servoSlider.value = 0;
+      sliderAngleReadout.textContent = "0°";
+      appendLog("LỆNH WEB", "Yêu cầu: <strong>PHƠI ĐỒ RA (0°)</strong> (Gửi mã 'O').", "text-amber-400");
+      sendSerialCommand('O');
+      updateDashboardView();
+    });
+
+    btnCmdClose.addEventListener('click', () => {
+      if (!isAuthed) { openLoginModal(); return; }
+      setMode(false);
+      currentServoAngle = 90;
+      servoSlider.value = 90;
+      sliderAngleReadout.textContent = "90°";
+      appendLog("LỆNH WEB", "Yêu cầu: <strong>THU ĐỒ VÀO (90°)</strong> (Gửi mã 'I').", "text-indigo-400");
+      sendSerialCommand('I');
+      updateDashboardView();
+    });
+
+    servoSlider.addEventListener('input', (e) => {
+      if (!isAuthed) { openLoginModal(); return; }
+      setMode(false);
+      currentServoAngle = parseInt(e.target.value);
+      sliderAngleReadout.textContent = `${currentServoAngle}°`;
+      updateDashboardView();
+    });
+
+    demoRainSlider.addEventListener('input', (e) => {
+      currentRainVal = parseInt(e.target.value);
+      updateDashboardView();
+    });
+
+    demoBtnToggleLight.addEventListener('click', () => {
+      isDark = !isDark;
+      if (isDark) {
+        demoBtnToggleLight.textContent = "🌙 Đang Tối (HIGH)";
+        demoBtnToggleLight.className = "px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 transition hover:bg-indigo-500/20";
+      } else {
+        demoBtnToggleLight.textContent = "☀️ Đang Sáng (LOW)";
+        demoBtnToggleLight.className = "px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30 transition hover:bg-amber-500/20";
+      }
+      updateDashboardView();
+    });
+
+    function updateDashboardView() {
+      isRaining = (currentRainVal < 500);
+
+      teleRainAdc.textContent = currentRainVal;
+      demoRainLabel.textContent = `${currentRainVal} (${isRaining ? 'CÓ MƯA' : 'TẠNH'})`;
+      if (isRaining) {
+        teleRainState.textContent = "CÓ MƯA";
+        teleRainState.className = "text-lg font-bold text-sky-400 animate-pulse";
+        rainStatusIcon.textContent = "🌧️";
+        teleRainBar.className = "h-full bg-sky-400 transition-all duration-300";
+        teleRainBar.style.width = "85%";
+      } else {
+        teleRainState.textContent = "TẠNH RÁO";
+        teleRainState.className = "text-lg font-bold text-emerald-400";
+        rainStatusIcon.textContent = "☀️";
+        teleRainBar.className = "h-full bg-emerald-500 transition-all duration-300";
+        teleRainBar.style.width = "15%";
+      }
+
+      teleLightPin.textContent = isDark ? "1 (HIGH - Tối)" : "0 (LOW - Sáng)";
+      if (isDark) {
+        teleLightState.textContent = "TRỜI TỐI";
+        teleLightState.className = "text-lg font-bold text-indigo-400";
+        lightStatusIcon.textContent = "🌙";
+        teleLightBar.className = "h-full bg-indigo-500 transition-all duration-300";
+        teleLightBar.style.width = "20%";
+      } else {
+        teleLightState.textContent = "TRỜI SÁNG";
+        teleLightState.className = "text-lg font-bold text-amber-400";
+        lightStatusIcon.textContent = "☀️";
+        teleLightBar.className = "h-full bg-amber-400 transition-all duration-300";
+        teleLightBar.style.width = "90%";
+      }
+
+      if (isAutoMode) {
+        if (!isRaining && !isDark) {
+          currentServoAngle = 0;
+        } else {
+          currentServoAngle = 90;
+        }
+      }
+
+      teleRackAngle.textContent = `${currentServoAngle}°`;
+      teleRackBar.style.width = `${(currentServoAngle / 90) * 100}%`;
+      servoSlider.value = currentServoAngle;
+      sliderAngleReadout.textContent = `${currentServoAngle}°`;
+
+      const svgRot = -(90 - currentServoAngle);
+      svgMechanicalArm.setAttribute('transform', `rotate(${svgRot}, 30, 45)`);
+
+      if (currentServoAngle <= 15) {
+        teleRackState.textContent = "ĐANG PHƠI (0°)";
+        teleRackState.className = "text-lg font-bold text-amber-400";
+        rackDescText.textContent = "Giàn phơi đang vươn ra đón ánh nắng ban mai.";
+      } else if (currentServoAngle >= 75) {
+        teleRackState.textContent = "ĐÃ THU VÀO (90°)";
+        teleRackState.className = "text-lg font-bold text-indigo-400";
+        rackDescText.textContent = "Giàn phơi đã thu gọn dưới mái hiên an toàn.";
+      } else {
+        teleRackState.textContent = `GÓC MỞ ${currentServoAngle}°`;
+        teleRackState.className = "text-lg font-bold text-sky-400";
+        rackDescText.textContent = `Giàn phơi đang ở vị trí trung gian (${currentServoAngle}°).`;
+      }
+    }
+
+    function drawChart() {
+      rainHistory.shift();
+      rainHistory.push(isRaining ? 80 : 15);
+
+      lightHistory.shift();
+      lightHistory.push(isDark ? 20 : 85);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "#334155";
+      ctx.lineWidth = 0.5;
+      for (let y = 20; y < canvas.height; y += 30) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      function drawLine(arr, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        const stepX = canvas.width / (maxPoints - 1);
+        for (let i = 0; i < arr.length; i++) {
+          const x = i * stepX;
+          const y = canvas.height - (arr[i] / 100) * (canvas.height - 10) - 5;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+
+      drawLine(rainHistory, "#38bdf8");
+      drawLine(lightHistory, "#f59e0b");
+    }
+
+    updateDashboardView();
+    setInterval(drawChart, 400);
+  </script>
+</body>
+</html>
